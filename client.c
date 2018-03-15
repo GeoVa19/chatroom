@@ -1,35 +1,27 @@
 #include "client.h"
 
-//Προγραμματισμός Συστημάτων
-//it21409, Βάσιος Γεώργιος
-//Sources: https://en.wikipedia.org/wiki/Select_(Unix)
-//Chat Room στη γλώσσα C
-/*Έγιναν δοκιμές σε Ubuntu, Debian, και Solaris.
-Στο ΛΣ Solaris για το compilation έγραψα: πχ. gcc client.c -o client -lnsl -lsocket
-*/
-
 int main(int argc, char *argv[]) {
     int sockfd, portno, n, m, maxfd, leave = FALSE;
-	
-	fd_set rfds;
-	
+
+    fd_set rfds;
+
     struct sockaddr_in server_addr;
     struct hostent *server;
-	
-	const char *token;
+
+    const char *token;
     char buffer[BUFFER_SIZE];
-	char name[NAMESIZE];
-	char message[MESSAGE_SIZE];
-	
-    if (argc < 3) 
+    char name[NAMESIZE];
+    char message[MESSAGE_SIZE];
+
+    if (argc < 3)
 		error("Please provide hostname and port number!\n");
-	
-	printf("%s\n", "Please give a name (max "NAME_SIZE(NAMESIZE)" characters): ");
-	fgets(name, NAMESIZE + 1, stdin); //+1 για τον χαρακτήρα '\n'
-	strtok(name, "\n"); //αφαίρεσε τον '\n'
-	
+
+    printf("%s\n", "Please give a name (max "NAME_SIZE(NAMESIZE)" characters): ");
+	fgets(name, NAMESIZE + 1, stdin);
+	strtok(name, "\n");
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
+    if (sockfd < 0)
         error("Error opening socket!");
 	
     server = gethostbyname(argv[1]);
@@ -51,7 +43,7 @@ int main(int argc, char *argv[]) {
 	
 	printf("\n%s\n\n", "To exit the chat room, press 'q' (without the single quotes!).");
 	
-	strcat(name, ": "); //Αρχικά: "George: " (για παράδειγμα)
+	strcat(name, ": ");
 	
 	while (TRUE) {
 		FD_ZERO(&rfds);
@@ -74,9 +66,9 @@ int main(int argc, char *argv[]) {
 				
 				memset(buffer, 0, sizeof(buffer));
 			
-				fgets(buffer, BUFFER_SIZE, stdin); //Έπειτα: "hello!"
+				fgets(buffer, BUFFER_SIZE, stdin);
 			
-				strcat(message, buffer); //Τελικά: "George: hello!"
+				strcat(message, buffer);
 			
 				if(buffer[0] == 'q') {
 					token = strtok(name, ":");

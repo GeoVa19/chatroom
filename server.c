@@ -1,47 +1,16 @@
 #include "server.h"
 
-//Προγραμματισμός Συστημάτων
-//it21409, Βάσιος Γεώργιος
-//Sources: https://en.wikipedia.org/wiki/Select_(Unix)
-//Chat Room στη γλώσσα C
-/*Έγιναν δοκιμές σε Ubuntu, Debian, και Solaris.
-Στο ΛΣ Solaris για το compilation έγραψα: πχ. gcc server.c -o server -lnsl -lsocket
-*/
-
-//Η σταθερά PORT είναι στο αρχείο server.h.
-
-/*Προτίμησα να κάνω χρήση της κλήσης συστήματος select(),
-	γιατί με την fork() δε λειτουργούσε σωστά το chat room
-	(τουλάχιστον έτσι όπως υλοποίησα στην αρχή το πρόγραμμα).
-	
-	Μετά από αναζήτηση στο Internet, η μία λύση ήταν η χρήση νημάτων
-	και η άλλη η κλήση συστήματος select(). Η select() δε δημιουργεί 
-	διεργασίες-παιδιά, παρά αναμένει έναν καινούργιο file descriptor.
-*/
-
 int main(void) {
     fd_set master; //master file descriptor
     fd_set read_fds; //file descriptors έτοιμοι για ανάγνωση
     int fdmax; //max file descriptors
 	
-    int sockfd; //socket του server
-    int newsockfd; //socket του(-ων) client(-s)
-    struct sockaddr_in client_addr; //για την accept
-    int clilen; //για την accept
+    int sockfd; //server's socket
+    int newsockfd; //clients' socket
+    struct sockaddr_in client_addr;
+    int clilen;
 
     char message[MESSAGE_SIZE];
-	
-	/*Μηχανισμός fault-tolerance: 
-		Αφού η εφαρμογή είναι πρακτικά ένα δημόσιο chat room,
-		για κάθε έναν client που συνδέεται στον server (είτε νέος
-		client είτε client που έπεσε/έφυγε και συνδέθηκε ξανά*), ο server
-		τού στέλνει το ιστορικό των μηνυμάτων (εφόσον, βέβαια, δεν έχει 
-		γεμίσει	ο πίνακας history).
-		
-		*ο server δεν κρατάει λίστα με παλαιότερους clients, έτσι τους
-		θεωρεί όλους νέους (το τόνισα παραπάνω απευθυνόμενος σε όσους πράγματι
-		θα ξαναμπούν, ως πραγματικοί χρήστες της εφαρμογής!)
-	*/
 	char history[HISTORY_SIZE];
 	
 	int isFull;
@@ -56,12 +25,12 @@ int main(void) {
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM; //stream socket
-	hints.ai_protocol = IPPROTO_TCP; //TCP πρωτόκολλο
+	hints.ai_protocol = IPPROTO_TCP; //TCP protocol
     hints.ai_flags = AI_PASSIVE;
 	
 	/*http://man7.org/linux/man-pages/man3/getaddrinfo.3.html*/
 	if ((error_code = getaddrinfo(NULL, PORT, &hints, &res)) != 0) {
-        error(gai_strerror(error_code)); //τύπωσε μήνυμα σφάλματος σε μορφή κατανοητή από τον άνθρωπο
+        error(gai_strerror(error_code)); //print a human-readable error message
     }
     
     for (p = res; p != NULL; p = p->ai_next) {
@@ -70,8 +39,7 @@ int main(void) {
         if (sockfd < 0) { 
             continue;
         }
-        
-        //για να αποφύγουμε το μήνυμα "address already in use"
+          
         setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
 
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) < 0) {
@@ -85,19 +53,17 @@ int main(void) {
     if (p == NULL)
         error("Server failed to bind.\n");
 
-    freeaddrinfo(res); //ελευθέρωσε την μνήμη για την λίστα res.
+    freeaddrinfo(res);
 
     //listen
     if (listen(sockfd, MAX_CLIENTS) == -1) 
         error("ERROR: listen");
 	
-	//μηδένισε τα δύο fd_set
 	FD_ZERO(&master);
     FD_ZERO(&read_fds);
 	
     FD_SET(sockfd, &master);
 	
-	//ο sockfd είναι o fdmax για τώρα
     fdmax = sockfd;
 
 	memset(message, 0, sizeof(message));
@@ -113,26 +79,26 @@ int main(void) {
             error("ERROR: select");
         }
 
-        //διέτρεξε τις συνδέσεις
+        //for each connection
         for (i = 0; i <= fdmax; i++) {
-            if (FD_ISSET(i, &read_fds)) { //κοίταξε αν ένας file descriptor είναι μέρος του read set
-                if (i == sockfd) { //νέα σύνδεση
+            if (FD_ISSET(i, &read_fds)) {
+                if (i == sockfd) {
                     clilen = sizeof(client_addr);
                     newsockfd = accept(sockfd, (struct sockaddr *) &client_addr, &clilen);
 
                     if (newsockfd == -1) {
                         error("ERROR: accept");
                     } else {
-                        FD_SET(newsockfd, &master); //πρόσθεσε το newsockfd στο master set
+                        FD_SET(newsockfd, &master);
                         if (newsockfd > fdmax) { 
-                            fdmax = newsockfd; //όρισε νέο fdmax
+                            fdmax = newsockfd;
                         }
 						
-						isFull = is_full(history); //δες αν ο πίνακας history είναι γεμάτος
+						isFull = is_full(history);
 						if (isFull) 
-							memset(history, 0, sizeof(history)); //άδειασε τον πίνακα history
+							memset(history, 0, sizeof(history));
 						else {
-							if (send(newsockfd, history, strlen(history), 0) == -1) { //στείλε όλα τα προηγούμενα μηνύματα
+							if (send(newsockfd, history, strlen(history), 0) == -1) {
 								close(sockfd);
 								close(newsockfd);
 								error("Failure to send old conversations.");
@@ -140,11 +106,9 @@ int main(void) {
 						}
                     }
                 } else {
-                    //από υπάρχον client
 					nbytes = recv(i, message, sizeof(message), 0);
                     if (nbytes <= 0) {
                         if (nbytes == 0) {
-                            //ο client έφυγε
                             printf("Socket %d closed.\n", i);
                         } else {
 							close(sockfd);
@@ -152,13 +116,13 @@ int main(void) {
                             error("Failure to receive message!");
                         }
                         close(i);
-                        FD_CLR(i, &master); //αφαίρεσέ τον από το master set
-                    } else { //ο client έστειλε δεδομένα
-						strcat(history, message); //ανανέωσε τον πίνακα history
+                        FD_CLR(i, &master);
+                    } else {
+						strcat(history, message);
                         
                         for (j = 0; j <= fdmax; j++) {
                             if (FD_ISSET(j, &master)) {
-                                if (j != sockfd && j != i) { //μη στείλεις το μήνυμα στον server και στον αποστολέα
+                                if (j != sockfd && j != i) {
                                     if (send(j, message, nbytes, 0) == -1) {
 										close(sockfd);
 										close(newsockfd);
@@ -167,7 +131,7 @@ int main(void) {
                                 }
                             }
                         }
-						//αφού το μήνυμα στάλθηκε σε όλους, καθάρισέ το (για να μην ξαναγραφτεί στον πίνακα history).
+						
 						memset(message, 0, sizeof(message));
                     }
                 }
@@ -178,19 +142,19 @@ int main(void) {
 	close(sockfd);
 	close(newsockfd);
 	
-    return EXIT_SUCCESS; //τερματισμός προγράμματος με επιτυχία
+    return EXIT_SUCCESS;
 }
 
 void error(const char *error_message) {
     fprintf(stderr, "%s\n", error_message);
-    exit(EXIT_FAILURE); //τερματισμός προγράμματος εξαιτίας σφάλματος
+    exit(EXIT_FAILURE);
 }
 
 int is_full(char *history) {
 	if (history[HISTORY_SIZE - 1] != '\0') { 
-		return TRUE; //είναι γεμάτος
+		return TRUE;
 	}
 	
-	return FALSE; //δεν είναι γεμάτος
+	return FALSE;
 }
 
