@@ -1,10 +1,10 @@
-#ifndef _CLIENT_H
-#define _CLIENT_H
+#pragma once
 
 #include <stdio.h>
 #include <netdb.h>
-#include <string.h> 
+#include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
@@ -21,4 +21,3 @@
 
 void error(const char *);
 
-#endif

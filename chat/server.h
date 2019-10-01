@@ -1,5 +1,4 @@
-#ifndef _SERVER_H
-#define _SERVER_H
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +21,5 @@
 #define PORT "8085" //port number
 
 void error(const char *);
-int is_full(char *);
+int is_full(const char *);
 
-#endif
