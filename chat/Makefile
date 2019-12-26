@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS= -O3
+CFLAGS=-O2
 
 server: server.o
 	$(CC) -o server server.o $(CFLAGS)
